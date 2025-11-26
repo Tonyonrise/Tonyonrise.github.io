@@ -1,196 +1,50 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>全球顶尖大学(Top 500)分布可视化</title>
-  <style>
-    body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    
-    /* 标题覆盖层 */
-    #title-card {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      color: width;
-      z-index: 1;
-      pointer-events: none; /* 让鼠标事件穿透到地球 */
-    }
-    
-    h1 {
-      color: #fff;
-      margin: 0;
-      font-size: 24px;
-      text-shadow: 0 0 10px rgba(0,0,0,0.8);
-    }
-    
-    p {
-      color: #ccc;
-      margin-top: 5px;
-      font-size: 14px;
-    }
-
-    /* 图例 */
-    .legend {
-      position: absolute;
-      bottom: 30px;
-      right: 30px;
-      background: rgba(255, 255, 255, 0.1);
-      padding: 10px;
-      border-radius: 8px;
-      backdrop-filter: blur(5px);
-      color: white;
-      font-size: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .gradient-bar {
-      width: 150px;
-      height: 10px;
-      background: linear-gradient(90deg, #2c3e50, #26619c, #e67e22, #c0392b);
-      border-radius: 5px;
-    }
-    .legend-labels {
-      display: flex;
-      justify-content: space-between;
-    }
-  </style>
-
-  <!-- 引入必要的库 -->
-  <script src="//unpkg.com/d3"></script>
-  <script src="//unpkg.com/globe.gl"></script>
-</head>
-<body>
-
-  <div id="title-card">
-    <h1>🌐 全球顶尖大学分布图 (Top 500)</h1>
-    <p>数据来源：模拟数据 (基于常见排名概算) | 交互：拖拽旋转，滚轮缩放，悬停查看详情</p>
-  </div>
-
-  <div class="legend">
-    <div>大学数量热力图</div>
-    <div class="gradient-bar"></div>
-    <div class="legend-labels">
-      <span>0</span>
-      <span>50+</span>
-      <span>100+</span>
-    </div>
-  </div>
-
-  <div id="globeViz"></div>
-
-  <script>
-    // 1. 模拟数据：世界各国Top 500大学数量 (基于QS/Times等排名的概略数据用于演示)
-    // 键名必须与 GeoJSON 中的 ADMIN 或 NAME 属性匹配
-    const universityData = {
-      "United States of America": 130,
-      "United Kingdom": 48,
-      "China": 45,
-      "Germany": 30,
-      "Australia": 25,
-      "Canada": 22,
-      "Japan": 15,
-      "France": 18,
-      "Netherlands": 12,
-      "South Korea": 10,
-      "Switzerland": 9,
-      "Sweden": 8,
-      "Italy": 10,
-      "Spain": 8,
-      "Russia": 7,
-      "Singapore": 6,
-      "Hong Kong S.A.R.": 5, // 注意 GeoJSON 可能将香港单独列出
-      "Taiwan": 5,
-      "India": 8,
-      "Brazil": 4,
-      "Belgium": 6,
-      "Denmark": 5,
-      "New Zealand": 5,
-      "Austria": 4,
-      "Ireland": 5,
-      "Norway": 4,
-      "Finland": 3,
-      "Israel": 2,
-      "Saudi Arabia": 3,
-      "South Africa": 3,
-      "Malaysia": 2,
-      "Mexico": 2,
-      "Chile": 1,
-      "Argentina": 1,
-      "Turkey": 1
-    };
-
-    // 2. 设置颜色比例尺 (使用 D3.js)
-    // 定义域从 0 到 100+，颜色从深蓝过渡到亮红
-    const colorScale = d3.scaleLinear()
-      .domain([0, 5, 20, 100])
-      .range(['#2c3e50', '#26619c', '#e67e22', '#c0392b']);
-
-    // 3. 获取世界地图 GeoJSON 数据
-    fetch('https://raw.githubusercontent.com/vasturiano/globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson')
-      .then(res => res.json())
-      .then(countries => {
+    <meta charset="UTF-8">
+    <title>3D 全息地球科普界面 - 手势交互</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
         
-        // 初始化地球实例
-        const world = Globe()
-          (document.getElementById('globeViz'))
-          .globeImageUrl('//unpkg.com/three-globe/example/img/earth-night.jpg') // 使用夜间地球贴图
-          .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png') // 星空背景
-          .lineHoverPrecision(0)
-          
-          // 配置多边形（国家板块）
-          .polygonsData(countries.features.filter(d => d.properties.ADMIN !== "Antarctica")) // 过滤掉南极洲以美化视觉
-          .polygonAltitude(0.005) // 基础高度
-          .polygonCapColor(d => {
-            // 根据大学数量获取颜色
-            const count = universityData[d.properties.ADMIN] || 0;
-            // 如果数量为0，显示半透明灰色，否则显示对应颜色
-            return count === 0 ? 'rgba(255,255,255, 0.05)' : colorScale(count);
-          })
-          .polygonSideColor(() => 'rgba(255, 255, 255, 0.05)')
-          .polygonStrokeColor(() => '#111')
-          
-          // 悬停交互逻辑
-          .polygonLabel(({ properties: d }) => {
-            const count = universityData[d.ADMIN] || 0;
-            return `
-              <div style="background: rgba(0,0,0,0.8); color: white; padding: 8px; border-radius: 4px; border: 1px solid #555;">
-                <strong style="font-size: 14px;">${d.ADMIN} (${d.ISO_A3})</strong><br/>
-                <span style="color: #ffd700;">Top 500 Universities: ${count}</span>
-              </div>
-            `;
-          })
-          .onPolygonHover(hoverD => {
-            // 当鼠标悬停时，改变板块的高度和颜色
-            world
-              .polygonAltitude(d => d === hoverD ? 0.06 : 0.005) // 悬停的国家凸起
-              .polygonCapColor(d => {
-                const count = universityData[d.properties.ADMIN] || 0;
-                // 悬停时变亮，非悬停保持原样
-                return d === hoverD ? '#5faee3' : (count === 0 ? 'rgba(255,255,255, 0.05)' : colorScale(count));
-              });
-          })
-          
-          // 初始配置
-          .pointOfView({ lat: 20, lng: 0, altitude: 2.5 }); // 初始视角
+        /* 视频输入隐藏，我们只需要数据 */
+        #input_video { display: none; }
+        
+        /* 全屏 Canvas */
+        #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        /* 全息 UI 覆盖层 */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            box-shadow: inset 0 0 100px rgba(0, 150, 255, 0.2);
+        }
 
-        // 4. 自动旋转控制
-        world.controls().autoRotate = true;
-        world.controls().autoRotateSpeed = 0.5;
+        .hud-text {
+            position: absolute;
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+        }
 
-        // 当用户操作时，暂停自动旋转一小会儿
-        const globeContainer = document.getElementById('globeViz');
-        globeContainer.addEventListener('mousedown', () => { world.controls().autoRotate = false; });
-        globeContainer.addEventListener('mouseup', () => { setTimeout(() => world.controls().autoRotate = true, 2000); });
-      });
+        #status { top: 20px; left: 20px; font-size: 1.2rem; border-left: 3px solid #00ffff; padding-left: 10px; }
+        #coordinates { bottom: 20px; right: 20px; text-align: right; }
+        #gesture-hint {
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 2rem; opacity: 0; transition: opacity 0.3s;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            padding: 20px; background: rgba(0, 0, 0, 0.6);
+        }
 
-      // 窗口大小调整适配
-      window.addEventListener('resize', () => {
-        // Globe.gl 会自动处理 resize，但在某些布局下可能需要手动触发刷新，
-        // 这里直接依赖库的自适应能力通常足够。
-      });
-  </script>
-</body>
-</html>
+        /* 加载动画 */
+        #loader {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; z-index: 10; font-size: 24px;
+        }
+    </style>
+    
+    <!-- 引入 Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- 引入 MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    
